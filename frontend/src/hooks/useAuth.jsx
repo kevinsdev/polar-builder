@@ -2,7 +2,8 @@ import { createContext, useContext, useState, useEffect } from 'react'
 
 const AuthContext = createContext()
 
-const API_BASE = 'https://9yhyi3c8p8ko.manus.space/api'
+// Use relative URL to work with current server and Nginx proxy
+const API_BASE = '/api'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -54,7 +55,7 @@ export function AuthProvider({ children }) {
       })
 
       const data = await response.json()
-
+      
       if (response.ok) {
         localStorage.setItem('token', data.token)
         setUser(data.user)
@@ -78,7 +79,7 @@ export function AuthProvider({ children }) {
       })
 
       const data = await response.json()
-
+      
       if (response.ok) {
         localStorage.setItem('token', data.token)
         setUser(data.user)

@@ -1,6 +1,26 @@
 version: '3.8'
-
 services:
+  database:
+    image: postgres:15-alpine
+    container_name: polar-builder-database
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=polar_builder
+      - POSTGRES_USER=polar_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - polar-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polar_user -d polar_builder"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   backend:
     build:
       context: ./backend
@@ -10,17 +30,25 @@ services:
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=postgresql://polar_user:${POSTGRES_PASSWORD}@database:5432/polar_builder
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - S3_REGION=${S3_REGION}
     volumes:
-      - ./backend/src/database.db:/app/src/database.db
       - ./logs:/app/logs
     ports:
       - "5000:5000"
     networks:
       - polar-network
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     build:
@@ -36,6 +64,11 @@ services:
       - polar-network
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   nginx:
     image: nginx:alpine
@@ -59,6 +92,6 @@ networks:
     driver: bridge
 
 volumes:
-  database:
+  postgres_data:
   logs:
 
